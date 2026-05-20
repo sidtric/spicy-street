@@ -3,15 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import MenuItemCard from '../components/MenuItemCard';
 import CartDrawer from '../components/CartDrawer';
+import { socket } from '../socket';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const CATEGORY_ICONS = {
-  Starters: '🍢',
-  'Main Course': '🍛',
-  Breads: '🫓',
-  Drinks: '🥤',
-  Desserts: '🍮',
+  Starters: '🍢', 'Main Course': '🍛', Breads: '🫓',
+  Drinks: '🥤', Desserts: '🍮', Specials: '⭐', Combos: '🎁',
 };
 
 export default function MenuPage() {
@@ -23,17 +21,16 @@ export default function MenuPage() {
   const [error, setError] = useState('');
   const categoryRefs = useRef({});
 
-  useEffect(() => {
+  const fetchMenu = () =>
     axios.get(`${API}/api/menu`)
-      .then(({ data }) => {
-        setMenu(data);
-        setActiveCategory(Object.keys(data)[0] || '');
-      })
-      .catch((err) => {
-        console.error('Menu fetch failed:', err.message);
-        setError(`Could not load menu. Is the server running on ${API}?`);
-      })
-      .finally(() => setLoading(false));
+      .then(({ data }) => { setMenu(data); setActiveCategory((c) => c || Object.keys(data)[0] || ''); })
+      .catch((err) => { console.error('Menu fetch failed:', err.message); setError(`Could not load menu. Is the server running on ${API}?`); });
+
+  useEffect(() => {
+    fetchMenu().finally(() => setLoading(false));
+    socket.on('menu_updated', fetchMenu);
+    return () => socket.off('menu_updated', fetchMenu);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const scrollToCategory = (cat) => {

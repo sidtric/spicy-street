@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5001';
-const CATEGORIES = ['Starters', 'Main Course', 'Breads', 'Drinks', 'Desserts'];
-const EMPTY_FORM = { name: '', description: '', price: '', category: 'Starters', isVeg: true, isAvailable: true };
+const authHeader = () => ({ Authorization: `Bearer ${sessionStorage.getItem('admin_token')}` });
+const EMPTY_FORM = { name: '', description: '', price: '', category: '', isVeg: true, isAvailable: true };
 
 export default function MenuManager() {
   const [items, setItems] = useState([]);
@@ -11,15 +11,21 @@ export default function MenuManager() {
   const [editId, setEditId] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  const fetchItems = () => axios.get(`${API}/api/menu/all`).then(({ data }) => setItems(data));
+  const categories = [...new Set(items.map((i) => i.category))].sort();
+
+  const fetchItems = () =>
+    axios.get(`${API}/api/menu/all`, { headers: authHeader() }).then(({ data }) => {
+      setItems(data);
+      setForm((f) => ({ ...f, category: f.category || data[0]?.category || '' }));
+    });
   useEffect(() => { fetchItems(); }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (editId) {
-      await axios.patch(`${API}/api/menu/${editId}`, form);
+      await axios.patch(`${API}/api/menu/${editId}`, form, { headers: authHeader() });
     } else {
-      await axios.post(`${API}/api/menu`, form);
+      await axios.post(`${API}/api/menu`, form, { headers: authHeader() });
     }
     setForm(EMPTY_FORM);
     setEditId(null);
@@ -34,13 +40,13 @@ export default function MenuManager() {
   };
 
   const toggleAvailable = async (item) => {
-    await axios.patch(`${API}/api/menu/${item._id}`, { isAvailable: !item.isAvailable });
+    await axios.patch(`${API}/api/menu/${item._id}`, { isAvailable: !item.isAvailable }, { headers: authHeader() });
     fetchItems();
   };
 
   const deleteItem = async (id) => {
     if (!confirm('Delete this item?')) return;
-    await axios.delete(`${API}/api/menu/${id}`);
+    await axios.delete(`${API}/api/menu/${id}`, { headers: authHeader() });
     fetchItems();
   };
 
@@ -78,9 +84,12 @@ export default function MenuManager() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>Category *</label>
-                <select style={inputStyle} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
+                <input required list="cat-list" style={inputStyle} value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  placeholder="e.g. Starters, Specials…" />
+                <datalist id="cat-list">
+                  {categories.map((c) => <option key={c} value={c} />)}
+                </datalist>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 22 }}>
                 <input type="checkbox" id="isVeg" checked={form.isVeg} onChange={(e) => setForm({ ...form, isVeg: e.target.checked })} />

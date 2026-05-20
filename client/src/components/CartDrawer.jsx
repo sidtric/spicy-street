@@ -48,6 +48,7 @@ export default function CartDrawer({ tableNumber }) {
               paymentId: verify.data.paymentId,
               razorpayOrderId: data.orderId,
             });
+            sessionStorage.setItem('last_order', JSON.stringify({ items: cart, total, tableNumber }));
             clearCart();
             setOpen(false);
             window.location.href = `/success?table=${tableNumber}&amount=${total}`;
