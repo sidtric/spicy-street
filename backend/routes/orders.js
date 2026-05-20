@@ -2,18 +2,19 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 
-// Place order after payment
-router.post('/', async (req, res) => {
+// Public: place order after payment
+const placeOrder = async (req, res) => {
   const { tableNumber, items, totalAmount, paymentId, razorpayOrderId } = req.body;
   try {
     const order = await Order.create({ tableNumber, items, totalAmount, paymentId, razorpayOrderId, status: 'paid' });
+    req.app.get('io').emit('new_order', order);
     res.status(201).json(order);
   } catch (err) {
     res.status(500).json({ error: 'Failed to place order' });
   }
-});
+};
 
-// GET all orders (admin) with optional status filter
+// Admin: all orders with optional status filter
 router.get('/', async (req, res) => {
   try {
     const filter = req.query.status ? { status: req.query.status } : {};
@@ -24,17 +25,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET orders for a table
-router.get('/table/:tableNumber', async (req, res) => {
-  try {
-    const orders = await Order.find({ tableNumber: req.params.tableNumber }).sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch orders' });
-  }
-});
-
-// GET stats for payment tracking
+// Admin: stats
 router.get('/stats', async (req, res) => {
   try {
     const today = new Date();
@@ -45,25 +36,21 @@ router.get('/stats', async (req, res) => {
       Order.aggregate([{ $match: { status: { $ne: 'cancelled' } } }, { $group: { _id: null, sum: { $sum: '$totalAmount' } } }]),
       Order.aggregate([{ $match: { createdAt: { $gte: today }, status: { $ne: 'cancelled' } } }, { $group: { _id: null, sum: { $sum: '$totalAmount' } } }]),
     ]);
-    res.json({
-      totalOrders: total,
-      todayOrders,
-      totalRevenue: revenue[0]?.sum || 0,
-      todayRevenue: todayRevenue[0]?.sum || 0,
-    });
+    res.json({ totalOrders: total, todayOrders, totalRevenue: revenue[0]?.sum || 0, todayRevenue: todayRevenue[0]?.sum || 0 });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
-// PATCH update order status
+// Admin: update status
 router.patch('/:id/status', async (req, res) => {
   try {
     const order = await Order.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+    req.app.get('io').emit('order_updated', order);
     res.json(order);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
 
-module.exports = router;
+module.exports = { router, placeOrder };
