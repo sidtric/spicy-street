@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const MenuItem = require('../models/MenuItem');
+const auth = require('../middleware/auth');
 
-// GET all menu items grouped by category (customer view)
+// Public: GET menu grouped by category (customer view)
 router.get('/', async (req, res) => {
   try {
     const items = await MenuItem.find({ isAvailable: true });
@@ -17,8 +18,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET all items flat (admin view)
-router.get('/all', async (req, res) => {
+// Admin: GET all items flat
+router.get('/all', auth, async (req, res) => {
   try {
     const items = await MenuItem.find().sort({ category: 1, name: 1 });
     res.json(items);
@@ -27,8 +28,8 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// POST add new item
-router.post('/', async (req, res) => {
+// Admin: add item
+router.post('/', auth, async (req, res) => {
   try {
     const item = await MenuItem.create(req.body);
     res.status(201).json(item);
@@ -37,18 +38,19 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH update item
-router.patch('/:id', async (req, res) => {
+// Admin: update item — emit menu_updated when availability changes
+router.patch('/:id', auth, async (req, res) => {
   try {
     const item = await MenuItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if ('isAvailable' in req.body) req.app.get('io').emit('menu_updated');
     res.json(item);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update item' });
   }
 });
 
-// DELETE item
-router.delete('/:id', async (req, res) => {
+// Admin: delete item
+router.delete('/:id', auth, async (req, res) => {
   try {
     await MenuItem.findByIdAndDelete(req.params.id);
     res.json({ success: true });
