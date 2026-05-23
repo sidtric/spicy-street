@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
 
@@ -23,7 +23,6 @@ const chime = () => {
 export default function Kitchen() {
   const [orders, setOrders] = useState([]);
   const [lastRefresh, setLastRefresh] = useState(new Date());
-  const isFirst = useRef(true);
 
   const fetchOrders = () =>
     axios.get(`${API}/api/orders?status=paid`, {
@@ -37,7 +36,6 @@ export default function Kitchen() {
     fetchOrders();
 
     const handleNewOrder = (order) => {
-      if (isFirst.current) { isFirst.current = false; return; }
       setOrders((prev) => [order, ...prev]);
       setLastRefresh(new Date());
       chime();
